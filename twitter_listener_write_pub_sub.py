@@ -7,16 +7,36 @@ from google.cloud import pubsub_v1
 from tweepy.streaming import StreamListener
 from tweepy.auth import OAuthHandler
 
+# Pub/Sub topic configuration
+publisher 	= pubsub_v1.PublisherClient()
+topic_path 	= publisher.topic_path("rare-result-248415","got_tweets_topic_alexis")
 
-#######################################    
-#########   USEFUL METHODS   ##########
-#######################################
+# Authenticate to the API
+auth 		= tweepy.OAuthHandler('Q3AGu9g3qrnEJ7LPfoqcN8c22', 'VXi4c6aRxJU9dA3yi89WF2bkEHsdL6T6TnWoH121My0isBRWAm')
+auth.set_access_token('353644828-pyCggbPYbcWOkVUMeBw7iJUXMCt9mkaO7RqNN5mD', '1VR8THzl6M7t2zcGrMzKlSqwXAAqC5cwcNyK0z3Y8S3Qh')
+api 		= tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
 
+# Define the list of terms to listen to
+lst_hashtags = ["#coronavirus"]
+
+# Method to push messages to pub/sub
+def write_to_pubsub(data):
+    try:
+        if data["lang"] == "fr":
+            publisher.publish(topic_path, data=json.dumps({
+                "text"	    : 	data["text"],
+                "user_id"   : 	data["user_id"],
+                "id"        : 	data["id"],
+                "created_at": 	datetime.datetime.fromtimestamp(data["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
+            }).encode("utf-8"), tweet_id=str(data["id"]).encode("utf-8"))
+    except Exception as e:
+        raise
+
+
+# Method to format a tweet from tweepy
 def reformat_tweet(tweet):
-	""" A method to format a tweet from tweepy
-    """
-    
     x = tweet
+
     processed_doc = {
         "id"					: x["id"],
         "lang"					: x["lang"],
@@ -50,39 +70,12 @@ def reformat_tweet(tweet):
         processed_doc["text"]			= x["text"]
 
     return processed_doc
-    
-    
-##################################################    
-##########    PUB / SUB CONFIGURATION   ##########
-##################################################
 
-# Pub/Sub topic configuration
-publisher 	= pubsub_v1.PublisherClient()
-topic_path 	= publisher.topic_path("rare-result-248415","got_tweets_topic_alexis_g")
 
-# Method to push messages to pub/sub
-def write_to_pubsub(tweet):
-	""" A method to push tweet messages to pub/sub.
-	The method needs to specify the JSON format according the to BigQuery table.
-    """
-    try:
-        if tweet["lang"] == "fr":
-            publisher.publish(topic_path, data=json.dumps({
-                "text"	    : 	tweet["text"],
-                "user_id"   : 	tweet["user_id"],
-                "id"        : 	tweet["id"],
-                "created_at": 	datetime.datetime.fromtimestamp(tweet["created_at"]).strftime('%Y-%m-%d %H:%M:%S')
-            }).encode("utf-8"), tweet_id=str(tweet["id"]).encode("utf-8"))
-    except Exception as e:
-        raise
-        
-##################################################    
-######    TWITTER CUSTOM LISTENER CLASS    #######
-##################################################
-
+# Custom listener class
 class StdOutListener(StreamListener):
-    """ A listener object handles tweets that are received from the stream.
-    This is a basic listener that just pushes tweets to pubsub.
+    """ A listener handles tweets that are received from the stream.
+    This is a basic listener that just pushes tweets to pubsub
     """
 
     def __init__(self):
@@ -101,24 +94,7 @@ class StdOutListener(StreamListener):
             print("rate limit active")
             return False
 
-#################################################    
-####    TWITTER AUTHENTICATION PARAMETERS   #####
-#################################################
-
-auth 		= tweepy.OAuthHandler('Q3AGu9g3qrnEJ7LPfoqcN8c22', 'VXi4c6aRxJU9dA3yi89WF2bkEHsdL6T6TnWoH121My0isBRWAm')
-auth.set_access_token('353644828-pyCggbPYbcWOkVUMeBw7iJUXMCt9mkaO7RqNN5mD', '1VR8THzl6M7t2zcGrMzKlSqwXAAqC5cwcNyK0z3Y8S3Qh')
-api 		= tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=False)
-
-
-#################################################    
-############      MAIN FUNCTION       ###########
-#################################################
-
-if __name__ == "__main__":
-	# Filter tweets based on hashtags
-	lst_hashtags = ["#coronavirus"]
-	# Create a listener object
-	l 		= StdOutListener()
-	# Start listening with the listener object and the credentials
-	stream 	= tweepy.Stream(auth, l, tweet_mode='extended')
-	stream.filter(track=lst_hashtags)
+# Start listening
+l 		= StdOutListener()
+stream 	= tweepy.Stream(auth, l, tweet_mode='extended')
+stream.filter(track=lst_hashtags)
