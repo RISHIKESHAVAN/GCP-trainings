@@ -1,5 +1,6 @@
 import shutil
 import numpy as np
+import os
 
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
@@ -158,3 +159,6 @@ def train_and_evaluate(output_dir):
         throttle_secs = EVAL_INTERVAL,  # evaluate every N seconds
         exporters = exporter)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+    
+    estimator_base_path = os.path.join(output_dir, 'exporter')
+    estimator_path = estimator.export_saved_model(estimator_base_path, serving_input_fn)
