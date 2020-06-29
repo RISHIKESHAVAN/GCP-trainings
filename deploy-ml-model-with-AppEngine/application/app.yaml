@@ -10,5 +10,5 @@ handlers:
   login: required
 
 env_variables:
-  MODEL_NAME: 'babyweight_2'
+  MODEL_NAME: 'babyweight_xx'
   VERSION_NAME: 'v1'
